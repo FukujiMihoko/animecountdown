@@ -183,6 +183,7 @@ async def fetch():
         await fetch()
         return
     # Requests the anime list from AniList, and returns the response
+    # TODO: Caching this.
     url = 'https://anilist.co/api/browse/anime'
     payload = {'access_token':ani_list_token,'status':"Currently Airing",'type':"Tv",'airing_data':"true"}
     with aiohttp.ClientSession() as session:
@@ -212,10 +213,10 @@ def combiner (itemkey, methodname, *a, **k):
 
 def get_times(list):
     a = []
-    list.sort(key=combiner('title_romaji', 'lower'))
     # For some reason AniList's API sometimes returns None. Why? Dunno.
     if list == None:
         return None
+    list.sort(key=combiner('title_romaji', 'lower'))
     # Parses the response from AniList and returns a dictionary with anime names and time left strings
     for anime in list:
         try:
