@@ -60,3 +60,8 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# Configuration Files
+config/
+config/channels.txt
+config/config.json
