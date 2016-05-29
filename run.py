@@ -147,10 +147,13 @@ async def message_updater():
                 await disable(mess)
             else:
                 response = await fetch()
-                response2 = get_times(response)
-                if (response2 == None):
+                
+                # For some reason AniList's API sometimes returns None. Why? Dunno.
+                if (response == None):
                     await message_updater()
                     return
+                
+                response2 = get_times(response)
                 await client.edit_message(msg, str(await anime_string(response2)))
     f.close()
     await asyncio.sleep(10)
@@ -213,9 +216,6 @@ def combiner (itemkey, methodname, *a, **k):
 
 def get_times(list):
     a = []
-    # For some reason AniList's API sometimes returns None. Why? Dunno.
-    if list == None:
-        return None
     list.sort(key=combiner('title_romaji', 'lower'))
     # Parses the response from AniList and returns a dictionary with anime names and time left strings
     for anime in list:
