@@ -27,6 +27,7 @@ anilist_client_id = config['anilist_client_id']
 anilist_client_secret = config['anilist_client_secret']
 configfile.close()
 
+
 print ('Starting catgirl detector...')
 strings = ['Catgirl detector started.','Finding nearby catgirls...','Catgirls detected.']
 for x in strings:
@@ -43,7 +44,7 @@ async def on_ready():
     print ('#    ID: %s   #' % client.user.id)
     print ('-------------------------------\n')
     f = open('oauth.txt','w')
-    print ('%s' % discord.utils.oauth_url('185954666461396993'), file=f)
+    print ('https://discordapp.com/oauth2/authorize?client_id=185954666461396993&scope=bot&permissions=207872', file=f)
     f.close()
     # Lists Servers and Text Channels
     print ('* Servers')
@@ -66,13 +67,30 @@ async def on_message(message):
     elif message.content.startswith('!enable'):
         await enable(message)
     elif message.content.startswith('!disable'):
-        await disable(message)
+        await disable(message=message)
+    elif message.content.startswith('!github'):
+        await github(message)
+#    elif message.content.startswith('!permissions'):
+#        await permissions(message)
+
+
+@client.event
+async def on_server_join(server):
+    await client.send_message(server.default_channel, 'Hello!\n' \
+                              'I can make countdowns for airing anime next episodes. My commands are:\n' \
+                              '``!nya``: Nya!\n' \
+                              '``!enable``: Enables the bot for this channel. I recommend you do it in a channel where people don\'t chat, so the messages don\'t scroll!\n' \
+                              '``!disable``: Disables the bot for this channel.\n' \
+                              '``!github``: Returns this bot\'s GitHub repo.')
 
 
 async def nya(message):
     author = message.author.mention
     channel = message.channel
-    await client.delete_message(message)
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
     await client.send_message(channel, '%s Nya!' % author)
     
 async def enable(message):
@@ -84,7 +102,10 @@ async def enable(message):
             enabledchannel = str(client.get_channel(arr[1]).name)
             # Warns the user, and deletes the message after a while.
             msg = await client.send_message(message.channel,'This server already has this bot enabled in channel #%s!' % enabledchannel)
-            await client.delete_message(message)
+            try:
+                await client.delete_message(message)
+            except Exception:
+                pass
             await asyncio.sleep(10)
             try:
                 await client.delete_message(msg)
@@ -100,37 +121,70 @@ async def enable(message):
     msg = await client.send_message(message.channel,'Bot enabled!')
     print('{0};;{1};;{2};;{3}'.format(str(message.server.id),str(message.channel.id),str(msg.id),str(msg.timestamp)),file=f)
     f.close()
-    await client.delete_message(message)
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
     
-async def disable(message):
+async def disable(message=None, server=None):
     f = open('./config/channels.txt', 'r+')
     # Aux string for storing the lines that aren't being deleted
     g = ''
     enabled = False
-    for line in f:
-        # Adds lines to the aux, and detects if the bot is enabled for this server.
-        if line.startswith(str(message.server.id)) == False:
-            g+=str(line)
-        else:
-            enabled = True
-    if enabled == False:
-        await client.send_message(message.channel,'Bot isn\'t enabled in this server!')
-        await client.delete_message(message)
-        return
-    f.close()
-    f = open('./config/channels.txt', 'w')
-    f.write(g)
-    f.close()
-    msg = await client.send_message(message.channel,'Bot disabled in this server!')
+    if (message == None):
+        for line in f:
+            if line.startswith(str(server)) == False:
+                g+=str(line)
+        f.close()
+        f = open('./config/channels.txt', 'w')
+        f.write(g)
+        f.close()
+    else:
+        for line in f:
+            # Adds lines to the aux, and detects if the bot is enabled for this server.
+            if line.startswith(str(message.server.id)) == False:
+                g+=str(line)
+            else:
+                enabled = True
+        if enabled == False:
+            await client.send_message(message.channel,'Bot isn\'t enabled in this server!')
+            try:
+                await client.delete_message(message)
+            except Exception:
+                pass
+            return
+        f.close()
+        f = open('./config/channels.txt', 'w')
+        f.write(g)
+        f.close()
+        msg = await client.send_message(message.channel,'Bot disabled in this server!')
+        try:
+            await client.delete_message(message)
+        except Exception:
+            pass
+        await asyncio.sleep(10)
+        try:
+            await client.delete_message(msg)
+        except Exception:
+            pass
+
+async def github(message):
+    author = message.author.mention
+    channel = message.channel
     try:
         await client.delete_message(message)
     except Exception:
         pass
-    await asyncio.sleep(10)
-    try:
-        await client.delete_message(msg)
-    except Exception:
-        pass
+    await client.send_message(channel, '%s Here\'s my GitHub repo! https://github.com/FukujiMihoko/animecountdown' % author)
+    
+# async def permissions(message):
+#     author = message.author.mention
+#     channel = message.channel
+#     try:
+#         await client.delete_message(message)
+#     except Exception:
+#         pass
+#     await client.send_message(channel, discord.utils.oauth_url('185954666461396993',permissions=perm))
 
 async def message_updater():
     f = open('./config/channels.txt', 'r+')
@@ -139,22 +193,25 @@ async def message_updater():
         # Parses the date and time, and adds 1ms
         dt = datetime.strptime(arr[3],'%Y-%m-%d %H:%M:%S.%f\n') + timedelta(milliseconds=1)
         # Gets the last message (the message the Bot Enabled message)
-        async for msg in client.logs_from(client.get_channel(arr[1]), limit=1,before=dt):
-            # Disables the bot in the server if the countdown message is deleted
-            if msg.id != arr[2]:
-                mess = await client.send_message(msg.channel,'Countdown message deleted! Disabling...')
-                await asyncio.sleep(10)
-                await disable(mess)
-            else:
-                response = await fetch()
-                
-                # For some reason AniList's API sometimes returns None. Why? Dunno.
-                if (response == None):
-                    await message_updater()
-                    return
-                
-                response2 = get_times(response)
-                await client.edit_message(msg, str(await anime_string(response2)))
+        try:
+            async for msg in client.logs_from(client.get_channel(arr[1]), limit=1,before=dt):
+                # Disables the bot in the server if the countdown message is deleted
+                if msg.id != arr[2]:
+                    mess = await client.send_message(msg.channel,'Countdown message deleted! Disabling...')
+                    await asyncio.sleep(10)
+                    await disable(message=mess)
+                else:
+                    response = await fetch()
+                    
+                    # For some reason AniList's API sometimes returns None. Why? Dunno.
+                    if (response == None):
+                        await message_updater()
+                        return
+                    
+                    response2 = get_times(response)
+                    await client.edit_message(msg, str(await anime_string(response2)))
+        except AttributeError:
+            await disable(server = arr[0])
     f.close()
     await asyncio.sleep(10)
     await message_updater()
