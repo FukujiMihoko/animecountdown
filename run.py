@@ -7,6 +7,7 @@ import datetime
 import aiohttp
 import operator
 import json
+import logging
 
 from discord import utils
 
@@ -17,7 +18,7 @@ from datetime import timedelta
 # Creates the client object
 client = discord.Client()
 
-# logging.basicConfig(level=logging.DEBUG, filename='debug.log', format='%(asctime)s %(message)s')
+
 
 # Config file, yay!
 configfile = open('./config/config.json', 'r')
@@ -225,15 +226,20 @@ async def auth():
     # print(anilist_client_id, '-', anilist_client_secret)
     url = 'https://anilist.co/api/auth/access_token'
     payload = {'grant_type':"client_credentials",'client_id':anilist_client_id,'client_secret':anilist_client_secret}
-    with aiohttp.ClientSession() as session:
-        async with session.post(url, data=payload) as r:
-            if (r.status != 200):
-                await asyncio.sleep(10)
-                await auth()
-                return
-            data = await r.json()
-            ani_list_token = data['access_token']
-            # print (ani_list_token)
+    try:
+        with aiohttp.ClientSession() as session:
+            async with session.post(url, data=payload) as r:
+                if (r.status != 200):
+                    await asyncio.sleep(10)
+                    await auth()
+                    return
+                data = await r.json()
+                ani_list_token = data['access_token']
+                # print (ani_list_token)
+    except aiohttp.errors.ClientOSError:
+        await asyncio.sleep(10)
+        await auth()
+        return
 
 async def fetch():
     # If there's no token in the call, request one!
@@ -245,22 +251,26 @@ async def fetch():
     # Requests the anime list from AniList, and returns the response
     # TODO: Caching this.
     url = 'https://anilist.co/api/browse/anime'
-    payload = {'access_token':ani_list_token,'status':"Currently Airing",'type':"Tv",'airing_data':"true"}
-    with aiohttp.ClientSession() as session:
-        async with session.get(url, params=payload) as r:
-            if (r.status == 401):
-                await auth()
-                await fetch()
-                return
-            elif (r.status != 200):
-                await asyncio.sleep(10)
-                await fetch()
-                return
-            data = await r.json()
-            # For some reason AniList's API sometimes returns None. Why? Dunno.
-            if data == None:
-                data = await fetch()
-            return data
+    payload = {'access_token':ani_list_token,'status':"Currently Airing",'type':"Tv",'airing_data':"airing_data=true", 'full_page':"full_page=true"}
+    try:
+        with aiohttp.ClientSession() as session:
+            async with session.get(url, params=payload) as r:
+                if (r.status == 401):
+                    await auth()
+                    await fetch()
+                    return
+                elif (r.status != 200):
+                    await asyncio.sleep(10)
+                    await fetch()
+                    return
+                data = await r.json()
+                # For some reason AniList's API sometimes returns None. Why? Dunno.
+                if data == None:
+                    data = await fetch()
+                return data
+    except aiohttp.errors.ClientOSError:
+        data = await fetch()
+        return data
 
 # Uses a key and a method in the contents of that key as a single key.
 def combiner (itemkey, methodname, *a, **k):
@@ -280,14 +290,22 @@ def get_times(list):
             minutes = int(anime['airing']['countdown'] % 3600 / 60)
             hours = int(anime['airing']['countdown'] % 86400 / 3600)
             days = int(anime['airing']['countdown'] / 86400)
+#            if (days == 6):
+#                a.append([anime['title_romaji'],'*{0} days, {1} hours, {2} minutes left*'.format(str(days),str(hours),str(minutes))])
+#            elif (days > 1):
+#                a.append([anime['title_romaji'],'{0} days, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
+#            elif (days == 1):
+#                a.append([anime['title_romaji'],'{0} day, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
+#            else:
+#                a.append([anime['title_romaji'],'**{0} hours, {1} minutes left**'.format(str(hours),str(minutes))])
             if (days == 6):
-                a.append([anime['title_romaji'],'*{0} days, {1} hours, {2} minutes left*'.format(str(days),str(hours),str(minutes))])
+                a.append([anime['title_romaji'],'*{0}d{1}h{2}m*'.format(str(days),str(hours),str(minutes))])
             elif (days > 1):
-                a.append([anime['title_romaji'],'{0} days, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
+                a.append([anime['title_romaji'],'{0}d{1}h{2}m'.format(str(days),str(hours),str(minutes))])
             elif (days == 1):
-                a.append([anime['title_romaji'],'{0} day, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
+                a.append([anime['title_romaji'],'{0}d{1}h{2}m'.format(str(days),str(hours),str(minutes))])
             else:
-                a.append([anime['title_romaji'],'**{0} hours, {1} minutes left**'.format(str(hours),str(minutes))])
+                a.append([anime['title_romaji'],'**{0}h{1}m**'.format(str(hours),str(minutes))])
         # Will be raised if there isn't a countdown.
         except TypeError:
             pass
