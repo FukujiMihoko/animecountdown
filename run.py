@@ -188,34 +188,34 @@ async def github(message):
 #     await client.send_message(channel, discord.utils.oauth_url('185954666461396993',permissions=perm))
 
 async def message_updater():
-    f = open('./config/channels.txt', 'r+')
-    for line in f:
-        arr = line.split(';;')
-        # Parses the date and time, and adds 1ms
-        dt = datetime.strptime(arr[3],'%Y-%m-%d %H:%M:%S.%f\n') + timedelta(milliseconds=1)
-        # Gets the last message (the message the Bot Enabled message)
-        try:
-            async for msg in client.logs_from(client.get_channel(arr[1]), limit=1,before=dt):
-                # Disables the bot in the server if the countdown message is deleted
-                if msg.id != arr[2]:
-                    mess = await client.send_message(msg.channel,'Countdown message deleted! Disabling...')
-                    await asyncio.sleep(10)
-                    await disable(message=mess)
-                else:
-                    response = await fetch()
-                    
-                    # For some reason AniList's API sometimes returns None. Why? Dunno.
-                    if (response == None):
-                        await message_updater()
-                        return
-                    
-                    response2 = get_times(response)
-                    await client.edit_message(msg, str(await anime_string(response2)))
-        except AttributeError:
-            await disable(server = arr[0])
-    f.close()
-    await asyncio.sleep(10)
-    await message_updater()
+    while True:
+        f = open('./config/channels.txt', 'r+')
+        for line in f:
+            arr = line.split(';;')
+            # Parses the date and time, and adds 1ms
+            dt = datetime.strptime(arr[3],'%Y-%m-%d %H:%M:%S.%f\n') + timedelta(milliseconds=1)
+            # Gets the last message (the message the Bot Enabled message)
+            try:
+                async for msg in client.logs_from(client.get_channel(arr[1]), limit=1,before=dt):
+                    # Disables the bot in the server if the countdown message is deleted
+                    if msg.id != arr[2]:
+                        mess = await client.send_message(msg.channel,'Countdown message deleted! Disabling...')
+                        await asyncio.sleep(10)
+                        await disable(message=mess)
+                    else:
+                        response = await fetch()
+                        
+                        # For some reason AniList's API sometimes returns None. Why? Dunno.
+                        if (response == None):
+                            await message_updater()
+                            return
+                        
+                        response2 = get_times(response)
+                        await client.edit_message(msg, str(await anime_string(response2)))
+            except AttributeError:
+                await disable(server = arr[0])
+        f.close()
+        await asyncio.sleep(10)
     
 async def auth():
     # Authenticates with AniList's API and returns the access token
