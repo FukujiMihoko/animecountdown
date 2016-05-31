@@ -29,13 +29,14 @@ anilist_client_secret = config['anilist_client_secret']
 configfile.close()
 
 
-print ('Starting catgirl detector...')
-strings = ['Catgirl detector started.','Finding nearby catgirls...','Catgirls detected.']
+strings = ['Starting catgirl detector...','Catgirl detector started.','Finding nearby catgirls...','Catgirls detected.']
 for x in strings:
     print('%s' % x)
     time.sleep(1)
 
 ani_list_token = None
+
+cache_time = 0
 
 @client.event
 async def on_ready():
@@ -244,12 +245,22 @@ async def auth():
 async def fetch():
     # If there's no token in the call, request one!
     global ani_list_token
+    global cache_time
+    
     if (ani_list_token == None):
         await auth()
         await fetch()
         return
     # Requests the anime list from AniList, and returns the response
-    # TODO: Caching this.
+    f = open('./cache', 'r+',encoding='utf-8')
+    try:
+        cache = json.load(f)
+    except json.decoder.JSONDecodeError:
+        pass
+    f.close()
+    deltatime = int(time.time()) - cache_time
+    if (deltatime < 30):
+        return cache
     url = 'https://anilist.co/api/browse/anime'
     payload = {'access_token':ani_list_token,'status':"Currently Airing",'type':"Tv",'airing_data':"airing_data=true", 'full_page':"full_page=true"}
     try:
@@ -267,9 +278,17 @@ async def fetch():
                 # For some reason AniList's API sometimes returns None. Why? Dunno.
                 if data == None:
                     data = await fetch()
+                cache_time = int(time.time())
+                f = open('./cache', 'w',encoding='utf-8')
+                json.dump(data,f,ensure_ascii=False,indent=4)
+                f.close()
                 return data
     except aiohttp.errors.ClientOSError:
         data = await fetch()
+        cache_time = int(time.time())
+        f = open('./cache', 'w',encoding='utf-8')
+        json.dump(data,f,ensure_ascii=False,indent=4)
+        f.close()
         return data
 
 # Uses a key and a method in the contents of that key as a single key.
