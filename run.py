@@ -212,7 +212,7 @@ async def message_updater():
                             return
                         
                         response2 = get_times(response)
-                        await client.edit_message(msg, str(await anime_string(response2)))
+                        await client.edit_message(msg, str(anime_string(response2)))
             except AttributeError:
                 await disable(server = arr[0])
         f.close()
@@ -339,7 +339,7 @@ def format_time(t):
     # Returns a time object from a string formatted by get_times
     return t.strptime('%d days, %H hours, %M minutes left')
 
-async def anime_string(list):
+def anime_string(list):
     # Makes the string with the messages.
     a = 'Airing Anime:\n**Bold** means it\'s airing in less than 24 hours\n*Italic* means it aired in the last 24 hours\n'
     for anime in list:
