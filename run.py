@@ -19,7 +19,6 @@ from datetime import timedelta
 client = discord.Client()
 
 
-
 # Config file, yay!
 configfile = open('./config/config.json', 'r')
 config = json.load(configfile)
@@ -72,8 +71,6 @@ async def on_message(message):
         await disable(message=message)
     elif message.content.startswith('!github'):
         await github(message)
-#    elif message.content.startswith('!permissions'):
-#        await permissions(message)
 
 
 @client.event
@@ -85,7 +82,7 @@ async def on_server_join(server):
                               '``!disable``: Disables the bot for this channel.\n' \
                               '``!github``: Returns this bot\'s GitHub repo.')
 
-
+# Nya!
 async def nya(message):
     author = message.author.mention
     channel = message.channel
@@ -95,6 +92,7 @@ async def nya(message):
         pass
     await client.send_message(channel, '%s Nya!' % author)
     
+# Enables the bot in this server and channel.
 async def enable(message):
     f = open('./config/channels.txt', 'r+')
     for line in f:
@@ -127,12 +125,14 @@ async def enable(message):
         await client.delete_message(message)
     except Exception:
         pass
-    
+
+# Disables the bot in the message's server, or the server passed to the function.
 async def disable(message=None, server=None):
     f = open('./config/channels.txt', 'r+')
     # Aux string for storing the lines that aren't being deleted
     g = ''
     enabled = False
+    # Deletes the server from the list if it was passed as a parameter.
     if (message == None):
         for line in f:
             if line.startswith(str(server)) == False:
@@ -170,6 +170,7 @@ async def disable(message=None, server=None):
         except Exception:
             pass
 
+# Returns the GitHub repo for the bot!
 async def github(message):
     author = message.author.mention
     channel = message.channel
@@ -178,16 +179,8 @@ async def github(message):
     except Exception:
         pass
     await client.send_message(channel, '%s Here\'s my GitHub repo! https://github.com/FukujiMihoko/animecountdown' % author)
-    
-# async def permissions(message):
-#     author = message.author.mention
-#     channel = message.channel
-#     try:
-#         await client.delete_message(message)
-#     except Exception:
-#         pass
-#     await client.send_message(channel, discord.utils.oauth_url('185954666461396993',permissions=perm))
 
+# Loops the message updater that keeps the countdowns in place.
 async def message_updater():
     while True:
         f = open('./config/channels.txt', 'r+')
@@ -218,8 +211,8 @@ async def message_updater():
         f.close()
         await asyncio.sleep(10)
     
+# Authenticates with AniList's API and saves the response to ani_list_token
 async def auth():
-    # Authenticates with AniList's API and returns the access token
     global ani_list_token
     global anilist_client_id
     global anilist_client_secret
@@ -242,6 +235,7 @@ async def auth():
         await auth()
         return
 
+# Grabs the anime list from AniList; returns the response as a list of dictionaries.
 async def fetch():
     # If there's no token in the call, request one!
     global ani_list_token
@@ -251,7 +245,7 @@ async def fetch():
         await auth()
         await fetch()
         return
-    # Requests the anime list from AniList, and returns the response
+    # If the file is empty, json.load() will raise json.decoder.JSONDecodeError. We can ignore this.
     f = open('./cache', 'r+',encoding='utf-8')
     try:
         cache = json.load(f)
@@ -267,6 +261,7 @@ async def fetch():
         with aiohttp.ClientSession() as session:
             async with session.get(url, params=payload) as r:
                 if (r.status == 401):
+                    # Status Code 401 means Unauthorized; probably our AniList API Access Token has expired.
                     logging.debug('fetch() call returned Status Code 401. Requesting a new Access Token...')
                     await auth()
                     await fetch()
@@ -304,24 +299,15 @@ def combiner (itemkey, methodname, *a, **k):
         return method(*a, **k)
     return key_extractor
     
-
+# Parses the response from AniList and returns a dictionary with anime names and time left strings
 def get_times(list):
     a = []
     list.sort(key=combiner('title_romaji', 'lower'))
-    # Parses the response from AniList and returns a dictionary with anime names and time left strings
     for anime in list:
         try:
             minutes = int(anime['airing']['countdown'] % 3600 / 60)
             hours = int(anime['airing']['countdown'] % 86400 / 3600)
             days = int(anime['airing']['countdown'] / 86400)
-#            if (days == 6):
-#                a.append([anime['title_romaji'],'*{0} days, {1} hours, {2} minutes left*'.format(str(days),str(hours),str(minutes))])
-#            elif (days > 1):
-#                a.append([anime['title_romaji'],'{0} days, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
-#            elif (days == 1):
-#                a.append([anime['title_romaji'],'{0} day, {1} hours, {2} minutes left'.format(str(days),str(hours),str(minutes))])
-#            else:
-#                a.append([anime['title_romaji'],'**{0} hours, {1} minutes left**'.format(str(hours),str(minutes))])
             if (days == 6):
                 a.append([anime['title_romaji'],'*{0}d{1}h{2}m*'.format(str(days),str(hours),str(minutes))])
             elif (days > 1):
@@ -335,12 +321,12 @@ def get_times(list):
             pass
     return a
 
+# Returns a time object from a string formatted by get_times
 def format_time(t):
-    # Returns a time object from a string formatted by get_times
     return t.strptime('%d days, %H hours, %M minutes left')
 
+# Makes the string with the messages.
 def anime_string(list):
-    # Makes the string with the messages.
     a = 'Airing Anime:\n**Bold** means it\'s airing in less than 24 hours\n*Italic* means it aired in the last 24 hours\n'
     for anime in list:
         a = a + anime[0] + ' - ' + anime[1] + '\n'
