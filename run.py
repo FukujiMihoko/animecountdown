@@ -201,7 +201,7 @@ async def update_message(line):
             if msg.id != arr[2]:
                 mess = await client.send_message(msg.channel,'Countdown message deleted! Disabling...')
                 await asyncio.sleep(10)
-                        await disable(message=mess)
+                await disable(message=mess)
             else:
                 response = None
                 # For some reason AniList's API sometimes returns None. Why? Dunno.
