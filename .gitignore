@@ -65,3 +65,4 @@ target/
 config/
 config/channels.txt
 config/config.json
+cache

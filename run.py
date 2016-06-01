@@ -224,7 +224,6 @@ async def auth():
     global anilist_client_id
     global anilist_client_secret
     
-    # print(anilist_client_id, '-', anilist_client_secret)
     url = 'https://anilist.co/api/auth/access_token'
     payload = {'grant_type':"client_credentials",'client_id':anilist_client_id,'client_secret':anilist_client_secret}
     try:
@@ -232,11 +231,12 @@ async def auth():
             async with session.post(url, data=payload) as r:
                 if (r.status != 200):
                     await asyncio.sleep(10)
+                    logging.debug('auth() call failed. Status code: %s' % str(r.status))
                     await auth()
                     return
                 data = await r.json()
                 ani_list_token = data['access_token']
-                # print (ani_list_token)
+                logging.debug('auth() call returned Access Token %s' % ani_list_token)
     except aiohttp.errors.ClientOSError:
         await asyncio.sleep(10)
         await auth()
@@ -267,23 +267,28 @@ async def fetch():
         with aiohttp.ClientSession() as session:
             async with session.get(url, params=payload) as r:
                 if (r.status == 401):
+                    logging.debug('fetch() call returned Status Code 401. Requesting a new Access Token...')
                     await auth()
                     await fetch()
                     return
                 elif (r.status != 200):
+                    logging.debug('fetch() call failed. Status code: %s' % str(r.status))
                     await asyncio.sleep(10)
                     await fetch()
                     return
                 data = await r.json()
                 # For some reason AniList's API sometimes returns None. Why? Dunno.
                 if data == None:
+                    logging.debug('fetch() returned None. Requesting again...')
                     data = await fetch()
                 cache_time = int(time.time())
                 f = open('./cache', 'w',encoding='utf-8')
                 json.dump(data,f,ensure_ascii=False,indent=4)
                 f.close()
+                logging.debug('fetch() returned %s' % str(data))
                 return data
-    except aiohttp.errors.ClientOSError:
+    except aiohttp.errors.ClientOSError as e:
+        logging.warning('fetch() raised an exception! Exception: %s' % str(e))
         data = await fetch()
         cache_time = int(time.time())
         f = open('./cache', 'w',encoding='utf-8')
