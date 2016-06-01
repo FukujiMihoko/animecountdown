@@ -249,6 +249,7 @@ async def fetch():
     f = open('./cache', 'r+',encoding='utf-8')
     try:
         cache = json.load(f)
+    # If the file is empty, json.load() will raise json.decoder.JSONDecodeError. We can ignore this.
     except json.decoder.JSONDecodeError:
         pass
     f.close()
