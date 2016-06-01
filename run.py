@@ -2,7 +2,6 @@ import os
 import discord
 import asyncio
 import time
-import win_unicode_console
 import datetime
 import aiohttp
 import operator
