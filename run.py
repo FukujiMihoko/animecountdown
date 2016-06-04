@@ -34,8 +34,6 @@ for x in strings:
 
 ani_list_token = None
 
-cache_time = 0
-
 @client.event
 async def on_ready():
     print ('\n-------------------------------')
@@ -93,33 +91,32 @@ async def nya(message):
     
 # Enables the bot in this server and channel.
 async def enable(message):
-    f = open('./config/channels.txt', 'r+')
-    for line in f:
-        # Checks if the server already has the bot enabled
-        if line.startswith(str(message.server.id)):
-            arr = line.split(';;')
-            enabledchannel = str(client.get_channel(arr[1]).name)
-            # Warns the user, and deletes the message after a while.
-            msg = await client.send_message(message.channel,'This server already has this bot enabled in channel #%s!' % enabledchannel)
-            try:
-                await client.delete_message(message)
-            except Exception:
-                pass
-            await asyncio.sleep(10)
-            try:
-                await client.delete_message(msg)
-            except Exception:
-                pass
-            return
-    # Sends the message, and stores server, channel and message IDs in channels.txt
-    # Format: ServerID;;ChannelID;;MessageID;;MessageTimestamp/n
-    # [0] = Server ID
-    # [1] = Channel ID
-    # [2] = Message ID
-    # [3] = Message Timestamp
-    msg = await client.send_message(message.channel,'Bot enabled!')
-    print('{0};;{1};;{2};;{3}'.format(str(message.server.id),str(message.channel.id),str(msg.id),str(msg.timestamp)),file=f)
-    f.close()
+    with open('./config/channels.txt', 'r+') as f:
+        for line in f:
+            # Checks if the server already has the bot enabled
+            if line.startswith(str(message.server.id)):
+                arr = line.split(';;')
+                enabledchannel = str(client.get_channel(arr[1]).name)
+                # Warns the user, and deletes the message after a while.
+                msg = await client.send_message(message.channel,'This server already has this bot enabled in channel #%s!' % enabledchannel)
+                try:
+                    await client.delete_message(message)
+                except Exception:
+                    pass
+                await asyncio.sleep(10)
+                try:
+                    await client.delete_message(msg)
+                except Exception:
+                    pass
+                return
+        # Sends the message, and stores server, channel and message IDs in channels.txt
+        # Format: ServerID;;ChannelID;;MessageID;;MessageTimestamp/n
+        # [0] = Server ID
+        # [1] = Channel ID
+        # [2] = Message ID
+        # [3] = Message Timestamp
+        msg = await client.send_message(message.channel,'Bot enabled!')
+        print('{0};;{1};;{2};;{3}'.format(str(message.server.id),str(message.channel.id),str(msg.id),str(msg.timestamp)),file=f)
     try:
         await client.delete_message(message)
     except Exception:
@@ -183,13 +180,17 @@ async def github(message):
 async def message_updater():
     while True:
         f = open('./config/channels.txt', 'r+')
+        response = None
+        while not response:
+            response = await fetch()
+        response2 = get_times(response)
         for line in f:
-            await update_message(line)
+            await update_message(line, response2)
         f.close()
         await asyncio.sleep(10)
 
 # Updates a message gotten from message_updater.
-async def update_message(line):
+async def update_message(line, data):
     arr = line.split(';;')
     # Parses the date and time, and adds 1ms
     dt = datetime.strptime(arr[3],'%Y-%m-%d %H:%M:%S.%f\n') + timedelta(milliseconds=1)
@@ -204,10 +205,7 @@ async def update_message(line):
             else:
                 response = None
                 # For some reason AniList's API sometimes returns None. Why? Dunno.
-                while (response == None):
-                    response = await fetch()
-                response2 = get_times(response)
-                await client.edit_message(msg, str(anime_string(response2)))
+                await client.edit_message(msg, str(anime_string(data)))
     except AttributeError:
         await disable(server = arr[0])
 
@@ -223,7 +221,6 @@ async def auth():
         with aiohttp.ClientSession() as session:
             async with session.post(url, data=payload) as r:
                 if (r.status != 200):
-                    await asyncio.sleep(10)
                     logging.debug('auth() call failed. Status code: %s' % str(r.status))
                     await auth()
                     return
@@ -231,7 +228,6 @@ async def auth():
                 ani_list_token = data['access_token']
                 logging.debug('auth() call returned Access Token %s' % ani_list_token)
     except aiohttp.errors.ClientOSError:
-        await asyncio.sleep(10)
         await auth()
         return
 
@@ -239,22 +235,8 @@ async def auth():
 async def fetch():
     # If there's no token in the call, request one!
     global ani_list_token
-    global cache_time
-    
     if (ani_list_token == None):
         await auth()
-        await fetch()
-        return
-    f = open('./cache', 'r+',encoding='utf-8')
-    try:
-        cache = json.load(f)
-    # If the file is empty, json.load() will raise json.decoder.JSONDecodeError. We can ignore this.
-    except json.decoder.JSONDecodeError:
-        pass
-    f.close()
-    deltatime = int(time.time()) - cache_time
-    if (deltatime < 30):
-        return cache
     url = 'https://anilist.co/api/browse/anime'
     payload = {'access_token':ani_list_token,'status':"Currently Airing",'type':"Tv",'airing_data':"airing_data=true", 'full_page':"full_page=true"}
     try:
@@ -268,27 +250,18 @@ async def fetch():
                     return
                 elif (r.status != 200):
                     logging.debug('fetch() call failed. Status code: %s' % str(r.status))
-                    await asyncio.sleep(10)
                     await fetch()
                     return
                 data = await r.json()
-                # For some reason AniList's API sometimes returns None. Why? Dunno.
+                # For some reason AniList's API sometimes returns \n. Why? Dunno.
                 if data == None:
                     logging.debug('fetch() returned None. Requesting again...')
                     data = await fetch()
-                cache_time = int(time.time())
-                f = open('./cache', 'w',encoding='utf-8')
-                json.dump(data,f,ensure_ascii=False,indent=4)
-                f.close()
                 logging.debug('fetch() returned %s' % str(data))
                 return data
     except aiohttp.errors.ClientOSError as e:
         logging.warning('fetch() raised an exception! Exception: %s' % str(e))
         data = await fetch()
-        cache_time = int(time.time())
-        f = open('./cache', 'w',encoding='utf-8')
-        json.dump(data,f,ensure_ascii=False,indent=4)
-        f.close()
         return data
 
 # Uses a key and a method in the contents of that key as a single key.
