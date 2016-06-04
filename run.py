@@ -7,6 +7,7 @@ import aiohttp
 import operator
 import json
 import logging
+import random
 
 from discord import utils
 
@@ -68,6 +69,14 @@ async def on_message(message):
         await disable(message=message)
     elif message.content.startswith('!github'):
         await github(message)
+    elif message.content.startswith('!register'):
+        await copipasta_register(message)
+    elif message.content.startswith('!delete'):
+        await copipasta_delete(message)
+    elif message.content.startswith('!list'):
+        await copipasta_list(message)
+    elif message.content.startswith('!cp'):
+        await copipasta(message)
 
 
 @client.event
@@ -175,6 +184,125 @@ async def github(message):
     except Exception:
         pass
     await client.send_message(channel, '%s Here\'s my GitHub repo! https://github.com/FukujiMihoko/animecountdown' % author)
+   
+# Register a message for the copipasta; copipastas are server-wide
+async def copipasta_register(message):
+    f = open('./config/commands.json', 'r+', encoding='utf-8')
+    try:
+        commands = json.load(f)
+    except json.decoder.JSONDecodeError:
+        commands = {}
+    f.close()
+    content = message.content[10:]
+    id = message.server.id
+    channel = message.channel
+    author = message.author.mention
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
+    args = content.split(';;')
+    if args[0] == content:
+        await client.send_message(channel, '%s No command detected! Usage: ``!register command;;reply``' % author)
+        return
+    if not id in commands:
+        commands[id] = {}
+    if not args[0] in commands[id]:
+        commands[id][args[0]] = args[1]
+        await client.send_message(channel, '{0} The command {1} was added!'.format(author,args[0]))
+        f = open('./config/commands.json','w', encoding='utf-8')
+        json.dump(commands,f,ensure_ascii=False,indent=4)
+        f.close()
+    else:
+        await client.send_message(channel, '{0} The command {1} already exists in this server!'.format(author,args[0]))
+
+# Deletes a message registered with !register
+async def copipasta_delete(message):
+    f = open('./config/commands.json', 'r+', encoding='utf-8')
+    try:
+        commands = json.load(f)
+    except json.decoder.JSONDecodeError:
+        commands = {}
+    f.close()
+    content = message.content[8:]
+    id = message.server.id
+    channel = message.channel
+    author = message.author.mention
+    roles = message.author.roles
+    is_mod = False
+    for role in roles:
+        is_mod += role.permissions.administrator
+        is_mod += role.permissions.kick_members
+    is_mod = bool(is_mod)
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
+    if is_mod:
+        try:
+            commands[id].pop(content)
+            await client.send_message(channel, '{0} The command {1} was deleted successfully.'.format(author,content))
+            f = open('./config/commands.json', 'w', encoding='utf-8')
+            json.dump(commands,f,ensure_ascii=False,indent=4)
+        except KeyError:
+            await client.send_message(channel, '{0} The command {1} does not exist in this server!'.format(author,content))
+    else:
+        await client.send_message(channel, '%s You\'re not a moderator!' % author)
+       
+async def copipasta_list(message):
+    f = open('./config/commands.json', 'r+', encoding='utf-8')
+    try:
+        commands = json.load(f)
+    except json.decoder.JSONDecodeError:
+        commands = {}
+    f.close()
+    id = message.server.id
+    channel = message.channel
+    author = message.author.mention
+    reply = ''
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
+    try:
+        for copipasta in commands[id]:
+            if reply == '':
+                reply = copipasta
+            else:
+                reply = '{0}, {1}'.format(reply,copipasta)
+        reply = '{1} The commands for this server are ``{0}``.'.format(reply,author)
+        await client.send_message(channel, reply)
+    except KeyError:
+        await client.send_message(channel, '%s There are no commands in this server!' % author)
+
+# Replies with a message registered with !register.
+# If there's no message requested, it will reply with a random one from that server.
+async def copipasta(message):
+    f = open('./config/commands.json', 'r+', encoding='utf-8')
+    try:
+        commands = json.load(f)
+    except json.decoder.JSONDecodeError:
+        commands = {}
+    f.close()
+    content = message.content[4:]
+    id = message.server.id
+    channel = message.channel
+    author = message.author.mention
+    try:
+        await client.delete_message(message)
+    except Exception:
+        pass
+    if content == '':
+        try:
+            pastas = list(commands[id].values())
+            await client.send_message(channel, author + '\n' + random.choice(pastas))
+        except (KeyError, ValueError, IndexError):
+            await client.send_message(channel, '%s There are no commands in this server!' % author)
+        return
+    try:
+        await client.send_message(channel, author + '\n' + commands[id][content])
+    except KeyError:
+        await client.send_message(channel, '{0} The command {1} does not exist in this server!'.format(author,content))
 
 # Loops the message updater that keeps the countdowns in place.
 async def message_updater():
