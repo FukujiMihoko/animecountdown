@@ -14,7 +14,7 @@ Some other features are planned.'''
 
 startup_extensions = [
     'cogs.MessageUpdater',
-
+    'cogs.copipasta'
 ]
 
 
@@ -29,9 +29,15 @@ class AnimeCountdownBot(commands.Bot):
         self.anilist_client_id = configs['anilist_client_id']
         self.anilist_client_secret = configs['anilist_client_secret']
         with open('./config/commands.json', 'r', encoding='utf-8') as f:
-            self.cp_commands = json.load(f)
+            try:
+                self.cp_commands = json.load(f)
+            except json.decoder.JSONDecodeError:
+                self.cp_commands = {}
         with open('./config/channels.json', 'r', encoding='utf-8') as f:
-            self.channels = json.load(f)
+            try:
+                self.channels = json.load(f)
+            except json.decoder.JSONDecodeError:
+                self.channels = []
         self.anilist_token = None
 
     async def on_ready(self):
@@ -59,9 +65,8 @@ class AnimeCountdownBot(commands.Bot):
             except discord.ClientException as e:
                 exc = '{}: {}'.format(type(e).__name__, e)
                 logging.warning('Failed to load extension {}\n{}'.format(extension, exc))
-        await MessageUpdater.auth()
-        await MessageUpdater.message_updater()
-        # TODO: auth() and message_updater()
+        await bot.cogs['MessageUpdater'].auth()
+        await bot.cogs['MessageUpdater'].message_updater()
 
 
 bot = AnimeCountdownBot(command_prefix='!', description=desc)
