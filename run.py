@@ -14,7 +14,8 @@ Some other features are planned.'''
 
 startup_extensions = [
     'cogs.MessageUpdater',
-    'cogs.copipasta'
+    'cogs.CopiPasta',
+    'cogs.BasicCommands'
 ]
 
 
