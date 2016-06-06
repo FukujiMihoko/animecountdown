@@ -68,8 +68,8 @@ class MessageUpdater:
             while not response:
                 response = await self.fetch()
             for channel in self.bot.channels:
-                response = self.get_times(channel, response)
-                await self.update_message(channel, response)
+                message = self.get_times(channel, response)
+                await self.update_message(channel, message)
             await asyncio.sleep(10)
 
     async def update_message(self, channel, data):
