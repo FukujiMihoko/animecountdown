@@ -12,6 +12,8 @@ desc = '''A bot that keeps a message updated with countdowns from AniList, rewri
 
 Some other features are planned.'''
 
+logging.basicConfig(level=logging.INFO, filename='debug.log', format='%(asctime)s - %(levelname)s %(message)s')
+
 startup_extensions = [
     'cogs.MessageUpdater',
     'cogs.CopiPasta',

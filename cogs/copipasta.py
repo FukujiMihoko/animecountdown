@@ -30,7 +30,7 @@ class CopiPasta:
 
     @cp.error
     async def cp_empty(self, error, ctx):
-        """"THIS IS UGLY IGNORE THIS"""
+        """THIS IS UGLY IGNORE THIS"""
         if isinstance(error, commands.MissingRequiredArgument):
             try:
                 await self.bot.delete_message(ctx.message)
@@ -81,7 +81,7 @@ class CopiPasta:
                 await self.bot.delete_message(ctx.message)
             except discord.Forbidden:
                 pass
-            await self.bot.say('{0} No command detected! Usage: !cp register <commandname> <command>'.format(
+            await self.bot.say('{0} No command detected! Usage: .cp register <commandname> <command>'.format(
                 ctx.message.author.mention))
 
     @cp.command(pass_context=True, invoke_without_command=True)
@@ -115,7 +115,7 @@ class CopiPasta:
                 await self.bot.delete_message(ctx.message)
             except discord.Forbidden:
                 pass
-            await self.bot.say('{0} No command detected! Usage: !cp delete <commandname>'.format(
+            await self.bot.say('{0} No command detected! Usage: .cp delete <commandname>'.format(
                 ctx.message.author.mention))
 
     def get_pasta(self, server, name: str):

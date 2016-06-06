@@ -1,5 +1,4 @@
 import aiohttp
-import time
 import discord
 import asyncio
 import datetime
@@ -68,8 +67,8 @@ class MessageUpdater:
             response = None
             while not response:
                 response = await self.fetch()
-            response = self.get_times(response)
             for channel in self.bot.channels:
+                response = self.get_times(channel, response)
                 await self.update_message(channel, response)
             await asyncio.sleep(10)
 
@@ -86,6 +85,9 @@ class MessageUpdater:
                     await self.bot.edit_message(msg, self.anime_string(data))
         except AttributeError:
             await self.disable_updater(server=channel['server_id'])
+        except discord.Forbidden:
+            logging.error('Got a FORBIDDEN response for a call in channel {0}, ID:'.format(channel,
+                                                                                           channel['channel_id']))
 
     # Uses a key and a method in the contents of that key as a single key.
     @staticmethod
@@ -96,25 +98,28 @@ class MessageUpdater:
             return method(*a, **k)
         return key_extractor
 
-    def get_times(self, animelist):
+    def get_times(self, channel, animelist):
         a = []
         animelist.sort(key=self.combiner('title_romaji', 'lower'))
         for anime in animelist:
-            try:
-                minutes = int(anime['airing']['countdown'] % 3600 / 60)
-                hours = int(anime['airing']['countdown'] % 86400 / 3600)
-                days = int(anime['airing']['countdown'] / 86400)
-                if days == 6:
-                    a.append([anime['title_romaji'], '*{0}d{1}h{2}m*'.format(str(days), str(hours), str(minutes))])
-                elif days > 1:
-                    a.append([anime['title_romaji'], '{0}d{1}h{2}m'.format(str(days), str(hours), str(minutes))])
-                elif days == 1:
-                    a.append([anime['title_romaji'], '{0}d{1}h{2}m'.format(str(days), str(hours), str(minutes))])
-                else:
-                    a.append([anime['title_romaji'], '**{0}h{1}m**'.format(str(hours), str(minutes))])
-            # Will be raised if there isn't a countdown.
-            except TypeError:
-                pass
+            if 'ignored' not in channel:
+                channel['ignored'] = []
+            if anime['id'] not in channel['ignored']:
+                try:
+                    minutes = int(anime['airing']['countdown'] % 3600 / 60)
+                    hours = int(anime['airing']['countdown'] % 86400 / 3600)
+                    days = int(anime['airing']['countdown'] / 86400)
+                    if days == 6:
+                        a.append([anime['title_romaji'], '*{0}d{1}h{2}m*'.format(str(days), str(hours), str(minutes))])
+                    elif days > 1:
+                        a.append([anime['title_romaji'], '{0}d{1}h{2}m'.format(str(days), str(hours), str(minutes))])
+                    elif days == 1:
+                        a.append([anime['title_romaji'], '{0}d{1}h{2}m'.format(str(days), str(hours), str(minutes))])
+                    else:
+                        a.append([anime['title_romaji'], '**{0}h{1}m**'.format(str(hours), str(minutes))])
+                # Will be raised if there isn't a countdown.
+                except TypeError:
+                    pass
         return a
 
     @staticmethod
@@ -150,6 +155,68 @@ class MessageUpdater:
         except discord.Forbidden:
             pass
 
+    @commands.group(pass_context=True, invoke_without_command=True)
+    async def ignore(self, ctx, *, name: int):
+        try:
+            await self.bot.delete_message(ctx.message)
+        except discord.Forbidden:
+            pass
+        is_mod = False
+        for role in ctx.message.author.roles:
+            if role.permissions.administrator or role.permissions.kick_members:
+                is_mod = True
+                break
+        if not is_mod:
+            return
+        for channel in self.bot.channels:
+            if ctx.message.server.id == channel['server_id']:
+                try:
+                    if name not in channel['ignored']:
+                        channel['ignored'].append(name)
+                    else:
+                        name = await self.get_anime_from_id(name)
+                        await self.bot.say('{0} The anime {1} is already ignored!'.format(ctx.message.author.mention,
+                                                                                          name))
+                except KeyError:
+                    channel['ignored'] = [name]
+                name = await self.get_anime_from_id(name)
+                await self.bot.say('{0} The anime {1} was successfully ignored!'.format(ctx.message.author.mention,
+                                                                                        name))
+                with open('./config/channels.json', 'w') as f:
+                    json.dump(self.bot.channels, f, indent=4)
+                return
+
+    @ignore.error
+    async def ignore_empty(self, error, ctx):
+        try:
+            await self.bot.delete_message(ctx.message)
+        except discord.Forbidden:
+            pass
+        if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
+            await self.bot.say('{0} No anime detected! Usage: .ignore <anilist ID>')
+
+    @ignore.command(pass_context=True)
+    async def clear(self, ctx):
+        try:
+            await self.bot.delete_message(ctx.message)
+        except discord.Forbidden:
+            pass
+        is_mod = False
+        for role in ctx.message.author.roles:
+            if role.permissions.administrator or role.permissions.kick_members:
+                is_mod = True
+                break
+        if not is_mod:
+            return
+        for channel in self.bot.channels:
+            if ctx.message.server.id == channel['server_id']:
+                channel['ignored'] = []
+                await self.bot.say('{0} Cleared the ignored shows for this server!'.format(ctx.message.author.mention))
+                with open('./config/channels.json', 'w') as f:
+                    json.dump(self.bot.channels, f, indent=4)
+                return
+        await self.bot.say('{0} This server doesn\'t have the updater enabled.'.format(ctx.message.author.mention))
+
     @commands.command(pass_context=True)
     async def disable(self, ctx):
         message = ctx.message
@@ -179,6 +246,29 @@ class MessageUpdater:
             await self.bot.delete_message(msg)
         except discord.Forbidden:
             pass
+
+    async def get_anime_from_id(self, animeid: int):
+        if not self.bot.anilist_token:
+            await self.auth()
+        url = 'https://anilist.co/api/anime/{0}'.format(str(animeid))
+        payload = {'access_token': self.bot.anilist_token}
+        try:
+            with aiohttp.ClientSession() as session:
+                async with session.get(url, params=payload) as r:
+                    if r.status == 401:
+                        await self.auth()
+                        await self.get_anime_from_id(animeid)
+                        return
+                    if r.status != 200:
+                        await self.get_anime_from_id(animeid)
+                        return
+                    data = await r.json()
+                    if not data:
+                        data = await self.get_anime_from_id(animeid)
+                    return data['title_romaji']
+        except aiohttp.errors.ClientOSError as e:
+            data = await self.get_anime_from_id(animeid)
+            return data['title_romaji']
 
 
 def setup(bot):
