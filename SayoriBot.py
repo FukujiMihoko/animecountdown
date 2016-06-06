@@ -19,7 +19,7 @@ startup_extensions = [
 ]
 
 
-class AnimeCountdownBot(commands.Bot):
+class SayoriBot(commands.Bot):
 
     def __init__(self, command_prefix, description):
         super().__init__(command_prefix, description=description)
@@ -47,10 +47,9 @@ class AnimeCountdownBot(commands.Bot):
         print('# Username: %s #' % self.user.name)
         print('#    ID: %s   #' % self.user.id)
         print('-------------------------------\n')
-        f = open('oauth.txt', 'w')
-        print('https://discordapp.com/oauth2/authorize?client_id=185954666461396993&scope=bot&permissions=207872',
-              file=f)
-        f.close()
+        with open('oauth.txt', 'w') as f:
+            print('https://discordapp.com/oauth2/authorize?client_id=185954666461396993&scope=bot&permissions=207872',
+                  file=f)
         # Lists Servers and Text Channels
         print('* Servers')
         for server in self.servers:
@@ -70,7 +69,7 @@ class AnimeCountdownBot(commands.Bot):
         await bot.cogs['MessageUpdater'].message_updater()
 
 
-bot = AnimeCountdownBot(command_prefix='!', description=desc)
+bot = SayoriBot(command_prefix='!', description=desc)
 
 strings = ['Starting catgirl detector...', 'Catgirl detector started.', 'Finding nearby catgirls...',
            'Catgirls detected.']

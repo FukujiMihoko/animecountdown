@@ -1,3 +1,3 @@
 chcp 65001
-python run.py
+python SayoriBot.py
 pause
