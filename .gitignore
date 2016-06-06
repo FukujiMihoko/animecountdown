@@ -66,3 +66,8 @@ config/
 config/channels.txt
 config/config.json
 cache
+.idea/workspace.xml
+.idea/vcs.xml
+.idea/modules.xml
+.idea/misc.xml
+.idea/animecountdown.iml

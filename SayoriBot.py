@@ -44,7 +44,7 @@ class SayoriBot(commands.Bot):
     async def on_ready(self):
         print('\n-------------------------------')
         print('#   Go chase those catgirls!  #')
-        print('# Username: %s #' % self.user.name)
+        print('#    Username: %s    #' % self.user.name)
         print('#    ID: %s   #' % self.user.id)
         print('-------------------------------\n')
         with open('oauth.txt', 'w') as f:
@@ -69,7 +69,7 @@ class SayoriBot(commands.Bot):
         await bot.cogs['MessageUpdater'].message_updater()
 
 
-bot = SayoriBot(command_prefix='!', description=desc)
+bot = SayoriBot(command_prefix='.', description=desc)
 
 strings = ['Starting catgirl detector...', 'Catgirl detector started.', 'Finding nearby catgirls...',
            'Catgirls detected.']
