@@ -67,8 +67,6 @@ class SayoriBot(commands.Bot):
             except discord.ClientException as e:
                 exc = '{}: {}'.format(type(e).__name__, e)
                 logging.warning('Failed to load extension {}\n{}'.format(extension, exc))
-        await bot.cogs['MessageUpdater'].auth()
-        await bot.cogs['MessageUpdater'].message_updater()
 
 
 bot = SayoriBot(command_prefix='.', description=desc)

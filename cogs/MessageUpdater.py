@@ -14,6 +14,7 @@ from datetime import datetime
 class MessageUpdater:
     def __init__(self, bot):
         self.bot = bot
+        self.updater = bot.loop.create_task(self.message_updater())
 
     async def auth(self):
         url = 'https://anilist.co/api/auth/access_token'
@@ -63,14 +64,13 @@ class MessageUpdater:
             return data
 
     async def message_updater(self):
-        while True:
-            response = None
-            while not response:
-                response = await self.fetch()
-            for channel in self.bot.channels:
-                message = self.get_times(channel, response)
-                await self.update_message(channel, message)
-            await asyncio.sleep(10)
+        response = None
+        while not response:
+            response = await self.fetch()
+        for channel in self.bot.channels:
+            message = self.get_times(channel, response)
+            await self.update_message(channel, message)
+        await asyncio.sleep(10)
 
     async def update_message(self, channel, data):
         dt = datetime.strptime(channel['timestamp'], '%Y-%m-%d %H:%M:%S.%f') + timedelta(milliseconds=1)
