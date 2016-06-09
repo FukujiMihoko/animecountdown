@@ -16,6 +16,9 @@ class MessageUpdater:
         self.bot = bot
         self.updater = bot.loop.create_task(self.message_updater())
 
+    def __del__(self):
+        self.updater.cancel()
+
     async def auth(self):
         url = 'https://anilist.co/api/auth/access_token'
         payload = {'grant_type': "client_credentials", 'client_id': self.bot.anilist_client_id,
@@ -64,13 +67,17 @@ class MessageUpdater:
             return data
 
     async def message_updater(self):
-        response = None
-        while not response:
-            response = await self.fetch()
-        for channel in self.bot.channels:
-            message = self.get_times(channel, response)
-            await self.update_message(channel, message)
-        await asyncio.sleep(10)
+        while not self.bot.is_closed:
+            try:
+                response = None
+                while not response:
+                    response = await self.fetch()
+                for channel in self.bot.channels:
+                    message = self.get_times(channel, response)
+                    await self.update_message(channel, message)
+                await asyncio.sleep(10)
+            except:
+                pass
 
     async def update_message(self, channel, data):
         dt = datetime.strptime(channel['timestamp'], '%Y-%m-%d %H:%M:%S.%f') + timedelta(milliseconds=1)
@@ -170,15 +177,12 @@ class MessageUpdater:
             return
         for channel in self.bot.channels:
             if ctx.message.server.id == channel['server_id']:
-                try:
-                    if name not in channel['ignored']:
-                        channel['ignored'].append(name)
-                    else:
-                        name = await self.get_anime_from_id(name)
-                        await self.bot.say('{0} The anime {1} is already ignored!'.format(ctx.message.author.mention,
-                                                                                          name))
-                except KeyError:
-                    channel['ignored'] = [name]
+                if 'ignored' in channel and name in channel['ignored']:
+                    name = await self.get_anime_from_id(name)
+                    await self.bot.say('{0} The anime {1} is already ignored!'.format(ctx.message.author.mention,
+                                                                                      name))
+                    return
+                channel['ignored'].append(name) if 'ignored' in channel else channel.setdefault('ignored', [name])
                 name = await self.get_anime_from_id(name)
                 await self.bot.say('{0} The anime {1} was successfully ignored!'.format(ctx.message.author.mention,
                                                                                         name))
@@ -193,7 +197,7 @@ class MessageUpdater:
         except discord.Forbidden:
             pass
         if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
-            await self.bot.say('{0} No anime detected! Usage: .ignore <anilist ID>')
+            await self.bot.say('{0} No anime detected! Usage: .ignore <anilist ID>'.format(ctx.message.author.mention))
 
     @ignore.command(pass_context=True)
     async def clear(self, ctx):
@@ -216,6 +220,40 @@ class MessageUpdater:
                     json.dump(self.bot.channels, f, indent=4)
                 return
         await self.bot.say('{0} This server doesn\'t have the updater enabled.'.format(ctx.message.author.mention))
+
+    @commands.command(pass_context=True, invoke_without_command=True)
+    async def unignore(self, ctx, *, name: int):
+        try:
+            await self.bot.delete_message(ctx.message)
+        except discord.Forbidden:
+            pass
+        for role in ctx.message.author.roles:
+            if role.permissions.administrator or role.permissions.kick_members:
+                is_mod = True
+                break
+        if not is_mod:
+            return
+        for channel in self.bot.channels:
+            if ctx.message.server.id == channel['server_id']:
+                if 'ignored' in channel and name in channel['ignored']:
+                    channel['ignored'].remove(name)
+                    name = await self.get_anime_from_id(name)
+                    await self.bot.say('{0} The anime {1} is not ignored anymore!'.format(ctx.message.author.mention,
+                                                                                          name))
+                    with open('./config/channels.json', 'w') as f:
+                        json.dump(self.bot.channels, f, indent=4)
+                    return
+                name = await self.get_anime_from_id(name)
+                await self.bot.say('{0} The anime {1} isn\'t ignored!'.format(ctx.message.author.mention, name))
+
+    @unignore.error
+    async def unignore_empty(self, error, ctx):
+        try:
+            await self.bot.delete_message(ctx.message)
+        except discord.Forbidden:
+            pass
+        if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
+            await self.bot.say('{0} No anime detected! Usage: .unignore <anilist ID>'.format(ctx.message.author.mention))
 
     @commands.command(pass_context=True)
     async def disable(self, ctx):
@@ -266,7 +304,7 @@ class MessageUpdater:
                     if not data:
                         data = await self.get_anime_from_id(animeid)
                     return data['title_romaji']
-        except aiohttp.errors.ClientOSError as e:
+        except aiohttp.errors.ClientOSError:
             data = await self.get_anime_from_id(animeid)
             return data['title_romaji']
 
