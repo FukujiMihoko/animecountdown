@@ -227,6 +227,7 @@ class MessageUpdater:
             await self.bot.delete_message(ctx.message)
         except discord.Forbidden:
             pass
+        is_mod = False
         for role in ctx.message.author.roles:
             if role.permissions.administrator or role.permissions.kick_members:
                 is_mod = True
