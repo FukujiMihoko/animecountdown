@@ -298,15 +298,13 @@ class MessageUpdater:
                         await self.get_anime_from_id(animeid)
                         return
                     if r.status != 200:
-                        await self.get_anime_from_id(animeid)
-                        return
+                        return str(animeid)
                     data = await r.json()
                     if not data:
-                        data = await self.get_anime_from_id(animeid)
+                        return str(animeid)
                     return data['title_romaji']
         except aiohttp.errors.ClientOSError:
-            data = await self.get_anime_from_id(animeid)
-            return data['title_romaji']
+            return str(animeid)
 
 
 def setup(bot):
