@@ -17,7 +17,8 @@ logging.basicConfig(level=logging.INFO, filename='debug.log', format='%(asctime)
 startup_extensions = [
     'cogs.MessageUpdater',
     'cogs.CopiPasta',
-    'cogs.BasicCommands'
+    'cogs.BasicCommands',
+    'cogs.xkcd'
 ]
 
 
